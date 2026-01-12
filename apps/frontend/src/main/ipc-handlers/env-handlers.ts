@@ -181,6 +181,20 @@ export function registerEnvHandlers(
       existingVars['ENABLE_FANCY_UI'] = config.enableFancyUi ? 'true' : 'false';
     }
 
+    // Custom Claude Deployment Configuration
+    if (config.customDeploymentBaseUrl !== undefined) {
+      existingVars['ANTHROPIC_BASE_URL'] = config.customDeploymentBaseUrl;
+    }
+    if (config.customDeploymentApiKey !== undefined) {
+      existingVars['ANTHROPIC_API_KEY'] = config.customDeploymentApiKey;
+    }
+    if (config.maxOutputTokens !== undefined) {
+      existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'] = String(config.maxOutputTokens);
+    }
+    if (config.customDeploymentCommand !== undefined) {
+      existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'] = config.customDeploymentCommand;
+    }
+
     // MCP Server Configuration
     if (config.mcpServers) {
       if (config.mcpServers.context7Enabled !== undefined) {
@@ -272,6 +286,18 @@ ${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANC
 # UI SETTINGS (OPTIONAL)
 # =============================================================================
 ${existingVars['ENABLE_FANCY_UI'] !== undefined ? `ENABLE_FANCY_UI=${existingVars['ENABLE_FANCY_UI']}` : '# ENABLE_FANCY_UI=true'}
+
+# =============================================================================
+# CLAUDE DEPLOYMENT CONFIGURATION (OPTIONAL)
+# =============================================================================
+# Custom Anthropic API endpoint (for local proxies, enterprise setups, etc.)
+${existingVars['ANTHROPIC_BASE_URL'] ? `ANTHROPIC_BASE_URL=${existingVars['ANTHROPIC_BASE_URL']}` : '# ANTHROPIC_BASE_URL='}
+# API key for custom deployments (alternative to OAuth for proxy setups)
+${existingVars['ANTHROPIC_API_KEY'] ? `ANTHROPIC_API_KEY=${existingVars['ANTHROPIC_API_KEY']}` : '# ANTHROPIC_API_KEY='}
+# Maximum output tokens per Claude session (default: 128768)
+${existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'] ? `CLAUDE_CODE_MAX_OUTPUT_TOKENS=${existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS']}` : '# CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768'}
+# Custom deployment command (overrides default claude CLI invocation)
+${existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'] ? `CUSTOM_CLAUDE_DEPLOYMENT_COMMAND=${existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND']}` : '# CUSTOM_CLAUDE_DEPLOYMENT_COMMAND='}
 
 # =============================================================================
 # MCP SERVER CONFIGURATION (per-project overrides)
@@ -474,6 +500,20 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
 
       if (vars['ENABLE_FANCY_UI']?.toLowerCase() === 'false') {
         config.enableFancyUi = false;
+      }
+
+      // Custom Claude Deployment Configuration
+      if (vars['ANTHROPIC_BASE_URL']) {
+        config.customDeploymentBaseUrl = vars['ANTHROPIC_BASE_URL'];
+      }
+      if (vars['ANTHROPIC_API_KEY']) {
+        config.customDeploymentApiKey = vars['ANTHROPIC_API_KEY'];
+      }
+      if (vars['CLAUDE_CODE_MAX_OUTPUT_TOKENS']) {
+        config.maxOutputTokens = parseInt(vars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'], 10);
+      }
+      if (vars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND']) {
+        config.customDeploymentCommand = vars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'];
       }
 
       // Populate graphitiProviderConfig from .env file (embeddings only - no LLM provider)

@@ -1,0 +1,704 @@
+diff --git a/apps/backend/core/auth.py b/apps/backend/core/auth.py
+index ce105a0..7f00f8a 100644
+--- a/apps/backend/core/auth.py
++++ b/apps/backend/core/auth.py
+@@ -21,11 +21,12 @@ AUTH_TOKEN_ENV_VARS = [
+ ]
+ 
+ # Environment variables to pass through to SDK subprocess
+-# NOTE: ANTHROPIC_API_KEY is intentionally excluded to prevent silent API billing
++# NOTE: ANTHROPIC_API_KEY can now be included for custom deployments
+ SDK_ENV_VARS = [
+     # API endpoint configuration
+     "ANTHROPIC_BASE_URL",
+     "ANTHROPIC_AUTH_TOKEN",
++    "ANTHROPIC_API_KEY",  # NEW: Enabled for custom deployments (local proxies, etc.)
+     # Model overrides (from API Profile custom model mappings)
+     "ANTHROPIC_MODEL",
+     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+@@ -36,8 +37,9 @@ SDK_ENV_VARS = [
+     "DISABLE_TELEMETRY",
+     "DISABLE_COST_WARNINGS",
+     "API_TIMEOUT_MS",
+-    # Windows-specific: Git Bash path for Claude Code CLI
+-    "CLAUDE_CODE_GIT_BASH_PATH",
++    # Claude Code specific configuration
++    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",  # NEW: Max tokens for session deployment
++    "CLAUDE_CODE_GIT_BASH_PATH",  # Windows-specific: Git Bash path for Claude Code CLI
+ ]
+ 
+ 
+diff --git a/apps/backend/integrations/graphiti/config.py b/apps/backend/integrations/graphiti/config.py
+index 4dbbc3e..97cc97a 100644
+--- a/apps/backend/integrations/graphiti/config.py
++++ b/apps/backend/integrations/graphiti/config.py
+@@ -45,6 +45,18 @@ Environment Variables:
+     GOOGLE_LLM_MODEL: Model for LLM (default: gemini-2.0-flash)
+     GOOGLE_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-004)
+ 
++    # OpenRouter (multi-provider aggregator)
++    OPENROUTER_API_KEY: Required for OpenRouter provider
++    OPENROUTER_LLM_MODEL: Model for LLM (default: anthropic/claude-3.5-sonnet)
++    OPENROUTER_EMBEDDING_MODEL: Model for embeddings (default: qwen/qwen3-embedding-8b)
++        Available models:
++        - qwen/qwen3-embedding-8b (4096 dims, 2026 release - default)
++        - qwen/qwen3-embedding-4b (2560 dims)
++        - qwen/qwen3-embedding-0.6b (1024 dims)
++        - openai/text-embedding-3-small (1536 dims)
++        - voyage/voyage-3 (1024 dims)
++        - google/text-embedding-004 (768 dims)
++
+     # Ollama (local)
+     OLLAMA_BASE_URL: Ollama server URL (default: http://localhost:11434)
+     OLLAMA_LLM_MODEL: Model for LLM (e.g., deepseek-r1:7b)
+@@ -147,7 +159,9 @@ class GraphitiConfig:
+     openrouter_api_key: str = ""
+     openrouter_base_url: str = "https://openrouter.ai/api/v1"
+     openrouter_llm_model: str = "anthropic/claude-3.5-sonnet"
+-    openrouter_embedding_model: str = "openai/text-embedding-3-small"
++    # NOTE: qwen/qwen3-embedding-8b is the text embedding model.
++    # The multimodal qwen3-vl-8b-embedding (text+images) will be available when OpenRouter adds it.
++    openrouter_embedding_model: str = "qwen/qwen3-embedding-8b"  # Qwen3-8B text embeddings
+ 
+     # Ollama settings (local)
+     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
+@@ -213,7 +227,7 @@ class GraphitiConfig:
+             "OPENROUTER_LLM_MODEL", "anthropic/claude-3.5-sonnet"
+         )
+         openrouter_embedding_model = os.environ.get(
+-            "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
++            "OPENROUTER_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b"
+         )
+ 
+         # Ollama settings
+@@ -408,6 +422,12 @@ class GraphitiConfig:
+                 return 1024  # Voyage-3
+             elif model.startswith("google/"):
+                 return 768  # Google text-embedding-004
++            elif model.startswith("qwen/qwen3-embedding-8b"):
++                return 4096  # Qwen3-8B embedding (2026 release)
++            elif model.startswith("qwen/qwen3-embedding-4b"):
++                return 2560  # Qwen3-4B embedding
++            elif model.startswith("qwen/qwen3-embedding-0.6b"):
++                return 1024  # Qwen3-0.6B embedding
+             # Add more providers as needed
+             return 1536  # Default for unknown OpenRouter models
+         return 768  # Safe default
+diff --git a/apps/frontend/src/main/ipc-handlers/env-handlers.ts b/apps/frontend/src/main/ipc-handlers/env-handlers.ts
+index c0d7e22..6247034 100644
+--- a/apps/frontend/src/main/ipc-handlers/env-handlers.ts
++++ b/apps/frontend/src/main/ipc-handlers/env-handlers.ts
+@@ -181,6 +181,20 @@ export function registerEnvHandlers(
+       existingVars['ENABLE_FANCY_UI'] = config.enableFancyUi ? 'true' : 'false';
+     }
+ 
++    // Custom Claude Deployment Configuration
++    if (config.customDeploymentBaseUrl !== undefined) {
++      existingVars['ANTHROPIC_BASE_URL'] = config.customDeploymentBaseUrl;
++    }
++    if (config.customDeploymentApiKey !== undefined) {
++      existingVars['ANTHROPIC_API_KEY'] = config.customDeploymentApiKey;
++    }
++    if (config.maxOutputTokens !== undefined) {
++      existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'] = String(config.maxOutputTokens);
++    }
++    if (config.customDeploymentCommand !== undefined) {
++      existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'] = config.customDeploymentCommand;
++    }
++
+     // MCP Server Configuration
+     if (config.mcpServers) {
+       if (config.mcpServers.context7Enabled !== undefined) {
+@@ -273,6 +287,18 @@ ${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANC
+ # =============================================================================
+ ${existingVars['ENABLE_FANCY_UI'] !== undefined ? `ENABLE_FANCY_UI=${existingVars['ENABLE_FANCY_UI']}` : '# ENABLE_FANCY_UI=true'}
+ 
++# =============================================================================
++# CLAUDE DEPLOYMENT CONFIGURATION (OPTIONAL)
++# =============================================================================
++# Custom Anthropic API endpoint (for local proxies, enterprise setups, etc.)
++${existingVars['ANTHROPIC_BASE_URL'] ? `ANTHROPIC_BASE_URL=${existingVars['ANTHROPIC_BASE_URL']}` : '# ANTHROPIC_BASE_URL='}
++# API key for custom deployments (alternative to OAuth for proxy setups)
++${existingVars['ANTHROPIC_API_KEY'] ? `ANTHROPIC_API_KEY=${existingVars['ANTHROPIC_API_KEY']}` : '# ANTHROPIC_API_KEY='}
++# Maximum output tokens per Claude session (default: 128768)
++${existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'] ? `CLAUDE_CODE_MAX_OUTPUT_TOKENS=${existingVars['CLAUDE_CODE_MAX_OUTPUT_TOKENS']}` : '# CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768'}
++# Custom deployment command (overrides default claude CLI invocation)
++${existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'] ? `CUSTOM_CLAUDE_DEPLOYMENT_COMMAND=${existingVars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND']}` : '# CUSTOM_CLAUDE_DEPLOYMENT_COMMAND='}
++
+ # =============================================================================
+ # MCP SERVER CONFIGURATION (per-project overrides)
+ # =============================================================================
+@@ -476,6 +502,20 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
+         config.enableFancyUi = false;
+       }
+ 
++      // Custom Claude Deployment Configuration
++      if (vars['ANTHROPIC_BASE_URL']) {
++        config.customDeploymentBaseUrl = vars['ANTHROPIC_BASE_URL'];
++      }
++      if (vars['ANTHROPIC_API_KEY']) {
++        config.customDeploymentApiKey = vars['ANTHROPIC_API_KEY'];
++      }
++      if (vars['CLAUDE_CODE_MAX_OUTPUT_TOKENS']) {
++        config.maxOutputTokens = parseInt(vars['CLAUDE_CODE_MAX_OUTPUT_TOKENS'], 10);
++      }
++      if (vars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND']) {
++        config.customDeploymentCommand = vars['CUSTOM_CLAUDE_DEPLOYMENT_COMMAND'];
++      }
++
+       // Populate graphitiProviderConfig from .env file (embeddings only - no LLM provider)
+       const embeddingProvider = vars['GRAPHITI_EMBEDDER_PROVIDER'];
+       if (embeddingProvider || vars['AZURE_OPENAI_API_KEY'] ||
+diff --git a/apps/frontend/src/main/memory-env-builder.ts b/apps/frontend/src/main/memory-env-builder.ts
+index 6382757..8586d8f 100644
+--- a/apps/frontend/src/main/memory-env-builder.ts
++++ b/apps/frontend/src/main/memory-env-builder.ts
+@@ -78,8 +78,11 @@ export function buildMemoryEnvVars(settings: AppSettings): Record<string, string
+       break;
+ 
+     case 'openrouter':
+-      if (settings.globalOpenRouterApiKey) {
+-        env.OPENROUTER_API_KEY = settings.globalOpenRouterApiKey;
++      if (settings.memoryOpenrouterApiKey || settings.globalOpenRouterApiKey) {
++        env.OPENROUTER_API_KEY = settings.memoryOpenrouterApiKey || settings.globalOpenRouterApiKey;
++      }
++      if (settings.memoryOpenrouterEmbeddingModel) {
++        env.OPENROUTER_EMBEDDING_MODEL = settings.memoryOpenrouterEmbeddingModel;
+       }
+       break;
+   }
+diff --git a/apps/frontend/src/renderer/components/onboarding/MemoryStep.tsx b/apps/frontend/src/renderer/components/onboarding/MemoryStep.tsx
+index 0c792c6..9542a46 100644
+--- a/apps/frontend/src/renderer/components/onboarding/MemoryStep.tsx
++++ b/apps/frontend/src/renderer/components/onboarding/MemoryStep.tsx
+@@ -44,6 +44,9 @@ interface MemoryConfig {
+   voyageApiKey: string;
+   // Google
+   googleApiKey: string;
++  // OpenRouter
++  openrouterApiKey: string;
++  openrouterEmbeddingModel: string;
+   // Ollama
+   ollamaEmbeddingModel: string;
+   ollamaEmbeddingDim: number;
+@@ -76,6 +79,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+     azureOpenaiEmbeddingDeployment: '',
+     voyageApiKey: '',
+     googleApiKey: settings.globalGoogleApiKey || '',
++    openrouterApiKey: '',
++    openrouterEmbeddingModel: 'qwen/qwen3-embedding-8b',  // Qwen3-8B (2026 release)
+     ollamaEmbeddingModel: 'qwen3-embedding:4b',
+     ollamaEmbeddingDim: 2560,
+   });
+@@ -126,6 +131,10 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+       if (!config.azureOpenaiBaseUrl.trim()) return false;
+       if (!config.azureOpenaiEmbeddingDeployment.trim()) return false;
+     }
++    if (embeddingProvider === 'openrouter') {
++      if (!config.openrouterApiKey.trim()) return false;
++      if (!config.openrouterEmbeddingModel.trim()) return false;
++    }
+ 
+     return true;
+   };
+@@ -153,6 +162,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+         memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
+         memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
+         memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
++        memoryOpenrouterApiKey: config.openrouterApiKey.trim() || undefined,
++        memoryOpenrouterEmbeddingModel: config.openrouterEmbeddingModel.trim() || undefined,
+       };
+ 
+       const result = await window.electronAPI.saveSettings(settingsToSave);
+@@ -172,6 +183,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+           memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
+           memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
+           memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
++          memoryOpenrouterApiKey: config.openrouterApiKey.trim() || undefined,
++          memoryOpenrouterEmbeddingModel: config.openrouterEmbeddingModel.trim() || undefined,
+         };
+         updateSettings(storeUpdate);
+         onNext();
+@@ -354,6 +367,51 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+       );
+     }
+ 
++    if (embeddingProvider === 'openrouter') {
++      return (
++        <div className="space-y-3">
++          <div className="space-y-2">
++            <Label className="text-sm font-medium text-foreground">{t('memory.openrouterApiKey')}</Label>
++            <p className="text-xs text-muted-foreground">{t('memory.openrouterApiKeyDescription')}</p>
++            <div className="relative">
++              <Input
++                type={showApiKey['openrouter'] ? 'text' : 'password'}
++                value={config.openrouterApiKey}
++                onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
++                placeholder="sk-or-..."
++                className="pr-10 font-mono text-sm"
++                disabled={isSaving}
++              />
++              <button
++                type="button"
++                onClick={() => toggleShowApiKey('openrouter')}
++                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
++              >
++                {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
++              </button>
++            </div>
++          </div>
++          <div className="space-y-2 pt-2 border-t border-border">
++            <Label className="text-sm font-medium text-foreground">{t('memory.openrouterModel')}</Label>
++            <p className="text-xs text-muted-foreground">{t('memory.openrouterModelDescription')}</p>
++            <Input
++              value={config.openrouterEmbeddingModel}
++              onChange={(e) => setConfig(prev => ({ ...prev, openrouterEmbeddingModel: e.target.value }))}
++              placeholder="qwen/qwen3-embedding-8b"
++              className="font-mono text-sm"
++              disabled={isSaving}
++            />
++          </div>
++          <p className="text-xs text-muted-foreground pt-1">
++            {t('memory.openrouterGetKey')}{' '}
++            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
++              OpenRouter
++            </a>
++          </p>
++        </div>
++      );
++    }
++
+     return null;
+   };
+ 
+@@ -481,6 +539,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
+                       <SelectItem value="voyage">{t('memory.providers.voyage')}</SelectItem>
+                       <SelectItem value="google">{t('memory.providers.google')}</SelectItem>
+                       <SelectItem value="azure_openai">{t('memory.providers.azure')}</SelectItem>
++                      <SelectItem value="openrouter">{t('memory.providers.openrouter')}</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+diff --git a/apps/frontend/src/renderer/components/settings/AppSettings.tsx b/apps/frontend/src/renderer/components/settings/AppSettings.tsx
+index a68f33e..67e21ac 100644
+--- a/apps/frontend/src/renderer/components/settings/AppSettings.tsx
++++ b/apps/frontend/src/renderer/components/settings/AppSettings.tsx
+@@ -19,7 +19,8 @@ import {
+   Globe,
+   Code,
+   Bug,
+-  Server
++  Server,
++  Rocket
+ } from 'lucide-react';
+ 
+ // GitLab icon component (lucide-react doesn't have one)
+@@ -53,6 +54,7 @@ import { AdvancedSettings } from './AdvancedSettings';
+ import { DevToolsSettings } from './DevToolsSettings';
+ import { DebugSettings } from './DebugSettings';
+ import { ProfileList } from './ProfileList';
++import { DeploymentSettings } from './DeploymentSettings';
+ import { ProjectSelector } from './ProjectSelector';
+ import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
+ import { useProjectStore } from '../../stores/project-store';
+@@ -67,7 +69,7 @@ interface AppSettingsDialogProps {
+ }
+ 
+ // App-level settings sections
+-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
++export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'agent' | 'paths' | 'integrations' | 'deployment' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+ 
+ interface NavItemConfig<T extends string> {
+   id: T;
+@@ -82,6 +84,7 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
+   { id: 'agent', icon: Bot },
+   { id: 'paths', icon: FolderOpen },
+   { id: 'integrations', icon: Key },
++  { id: 'deployment', icon: Rocket },
+   { id: 'api-profiles', icon: Server },
+   { id: 'updates', icon: Package },
+   { id: 'notifications', icon: Bell },
+@@ -194,6 +197,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
+         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
+       case 'integrations':
+         return <IntegrationSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
++      case 'deployment':
++        return <DeploymentSettings settings={settings} onSettingsChange={setSettings} />;
+       case 'api-profiles':
+         return <ProfileList />;
+       case 'updates':
+diff --git a/apps/frontend/src/renderer/components/settings/DeploymentSettings.tsx b/apps/frontend/src/renderer/components/settings/DeploymentSettings.tsx
+new file mode 100644
+index 0000000..bfc5d94
+--- /dev/null
++++ b/apps/frontend/src/renderer/components/settings/DeploymentSettings.tsx
+@@ -0,0 +1,178 @@
++import { useTranslation } from 'react-i18next';
++import { useState } from 'react';
++import { Label } from '../ui/label';
++import { Input } from '../ui/input';
++import { Textarea } from '../ui/textarea';
++import { Button } from '../ui/button';
++import { SettingsSection } from './SettingsSection';
++import type { AppSettings } from '../../../shared/types';
++
++interface DeploymentSettingsProps {
++  settings: AppSettings;
++  onSettingsChange: (settings: AppSettings) => void;
++}
++
++/**
++ * Deployment settings component for custom Claude deployment configuration
++ * Allows users to configure custom endpoints, API keys, and deployment commands
++ */
++export function DeploymentSettings({ settings, onSettingsChange }: DeploymentSettingsProps) {
++  const { t } = useTranslation('settings');
++  const [showSensitive, setShowSensitive] = useState(false);
++
++  const testDeployment = async () => {
++    // TODO: Implement deployment testing logic
++    alert('Deployment testing functionality will be implemented in the backend');
++  };
++
++  const resetToDefaults = () => {
++    onSettingsChange({
++      ...settings,
++      customDeploymentBaseUrl: undefined,
++      customDeploymentApiKey: undefined,
++      maxOutputTokens: undefined,
++      customDeploymentCommand: undefined,
++    });
++  };
++
++  return (
++    <div className="space-y-6">
++      <SettingsSection
++        title={t('deployment.title')}
++        description={t('deployment.description')}
++      >
++        <div className="space-y-6">
++          {/* Custom Base URL */}
++          <div className="space-y-3">
++            <Label htmlFor="customDeploymentBaseUrl" className="text-sm font-medium text-foreground">
++              {t('deployment.baseUrlLabel')}
++            </Label>
++            <p className="text-sm text-muted-foreground">
++              {t('deployment.baseUrlDescription')}
++            </p>
++            <Input
++              id="customDeploymentBaseUrl"
++              placeholder="http://localhost:8082"
++              className="w-full max-w-lg"
++              value={settings.customDeploymentBaseUrl || ''}
++              onChange={(e) => onSettingsChange({ ...settings, customDeploymentBaseUrl: e.target.value })}
++            />
++            <p className="text-xs text-muted-foreground">
++              Example: <code className="bg-muted px-1 py-0.5 rounded">http://localhost:8082</code>
++            </p>
++          </div>
++
++          {/* Custom API Key */}
++          <div className="space-y-3">
++            <div className="flex items-center justify-between">
++              <Label htmlFor="customDeploymentApiKey" className="text-sm font-medium text-foreground">
++                {t('deployment.apiKeyLabel')}
++              </Label>
++              <Button
++                type="button"
++                variant="ghost"
++                size="sm"
++                onClick={() => setShowSensitive(!showSensitive)}
++                className="h-6 px-2 text-xs"
++              >
++                {showSensitive ? t('deployment.hide') : t('deployment.show')}
++              </Button>
++            </div>
++            <p className="text-sm text-muted-foreground">
++              {t('deployment.apiKeyDescription')}
++            </p>
++            <Input
++              id="customDeploymentApiKey"
++              type={showSensitive ? 'text' : 'password'}
++              placeholder={showSensitive ? 'sk-ant-api01-...' : '••••••••••••••••'}
++              className="w-full max-w-lg"
++              value={settings.customDeploymentApiKey || ''}
++              onChange={(e) => onSettingsChange({ ...settings, customDeploymentApiKey: e.target.value })}
++            />
++          </div>
++
++          {/* Max Output Tokens */}
++          <div className="space-y-3">
++            <Label htmlFor="maxOutputTokens" className="text-sm font-medium text-foreground">
++              {t('deployment.maxTokensLabel')}
++            </Label>
++            <p className="text-sm text-muted-foreground">
++              {t('deployment.maxTokensDescription')}
++            </p>
++            <Input
++              id="maxOutputTokens"
++              type="number"
++              placeholder="128768"
++              className="w-full max-w-lg"
++              value={settings.maxOutputTokens || ''}
++              onChange={(e) => onSettingsChange({
++                ...settings,
++                maxOutputTokens: e.target.value ? parseInt(e.target.value) : undefined
++              })}
++            />
++            <p className="text-xs text-muted-foreground">
++              {t('deployment.maxTokensDefault')}: <code className="bg-muted px-1 py-0.5 rounded">128768</code>
++            </p>
++          </div>
++
++          {/* Custom Deployment Command */}
++          <div className="space-y-3">
++            <Label htmlFor="customDeploymentCommand" className="text-sm font-medium text-foreground">
++              {t('deployment.commandLabel')}
++            </Label>
++            <p className="text-sm text-muted-foreground">
++              {t('deployment.commandDescription')}
++            </p>
++            <Textarea
++              id="customDeploymentCommand"
++              placeholder="ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=pass CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768 claude --dangerously-skip-permissions --verbose"
++              className="w-full max-w-lg font-mono text-xs"
++              rows={3}
++              value={settings.customDeploymentCommand || ''}
++              onChange={(e) => onSettingsChange({ ...settings, customDeploymentCommand: e.target.value })}
++            />
++            <p className="text-xs text-muted-foreground">
++              {t('deployment.commandNote')}
++            </p>
++          </div>
++
++          {/* Action Buttons */}
++          <div className="flex gap-2 pt-2">
++            <Button
++              type="button"
++              variant="outline"
++              onClick={testDeployment}
++              disabled={!settings.customDeploymentBaseUrl}
++            >
++              {t('deployment.testButton')}
++            </Button>
++            <Button
++              type="button"
++              variant="ghost"
++              onClick={resetToDefaults}
++            >
++              {t('deployment.resetButton')}
++            </Button>
++          </div>
++        </div>
++      </SettingsSection>
++
++      {/* Info Box */}
++      <SettingsSection>
++        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
++          <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100 mb-2">
++            {t('deployment.infoTitle')}
++          </h4>
++          <p className="text-sm text-blue-800 dark:text-blue-200">
++            {t('deployment.infoDescription')}
++          </p>
++          <ul className="mt-2 text-sm text-blue-800 dark:text-blue-200 list-disc list-inside space-y-1">
++            <li>ANTHROPIC_BASE_URL: {t('deployment.infoBaseUrl')}</li>
++            <li>ANTHROPIC_API_KEY: {t('deployment.infoApiKey')}</li>
++            <li>CLAUDE_CODE_MAX_OUTPUT_TOKENS: {t('deployment.infoMaxTokens')}</li>
++          </ul>
++        </div>
++      </SettingsSection>
++    </div>
++  );
++}
+\ No newline at end of file
+diff --git a/apps/frontend/src/shared/constants/config.ts b/apps/frontend/src/shared/constants/config.ts
+index daa0954..3a63576 100644
+--- a/apps/frontend/src/shared/constants/config.ts
++++ b/apps/frontend/src/shared/constants/config.ts
+@@ -37,6 +37,11 @@ export const DEFAULT_APP_SETTINGS = {
+   // Global API keys (used as defaults for all projects)
+   globalClaudeOAuthToken: undefined as string | undefined,
+   globalOpenAIApiKey: undefined as string | undefined,
++  // Custom Claude Deployment Configuration (for local proxies, custom endpoints, etc.)
++  customDeploymentBaseUrl: undefined as string | undefined,    // ANTHROPIC_BASE_URL
++  customDeploymentApiKey: undefined as string | undefined,     // ANTHROPIC_API_KEY
++  maxOutputTokens: undefined as number | undefined,            // CLAUDE_CODE_MAX_OUTPUT_TOKENS
++  customDeploymentCommand: undefined as string | undefined,    // Custom command
+   // Selected agent profile - defaults to 'auto' for per-phase optimized model selection
+   selectedAgentProfile: 'auto',
+   // Changelog preferences (persisted between sessions)
+diff --git a/apps/frontend/src/shared/i18n/locales/en/onboarding.json b/apps/frontend/src/shared/i18n/locales/en/onboarding.json
+index d2b5f77..459caf1 100644
+--- a/apps/frontend/src/shared/i18n/locales/en/onboarding.json
++++ b/apps/frontend/src/shared/i18n/locales/en/onboarding.json
+@@ -70,8 +70,14 @@
+       "openai": "OpenAI",
+       "voyage": "Voyage AI",
+       "google": "Google AI",
+-      "azure": "Azure OpenAI"
+-    }
++      "azure": "Azure OpenAI",
++      "openrouter": "OpenRouter (Multi-Provider)"
++    },
++    "openrouterApiKey": "OpenRouter API Key",
++    "openrouterApiKeyDescription": "Required for OpenRouter provider",
++    "openrouterModel": "Embedding Model",
++    "openrouterModelDescription": "Qwen3-8B (4096 dims, recommended), OpenAI, Voyage, or Google models available",
++    "openrouterGetKey": "Get your key from"
+   },
+   "completion": {
+     "title": "You're All Set!",
+diff --git a/apps/frontend/src/shared/i18n/locales/en/settings.json b/apps/frontend/src/shared/i18n/locales/en/settings.json
+index c102d26..f9b5e1a 100644
+--- a/apps/frontend/src/shared/i18n/locales/en/settings.json
++++ b/apps/frontend/src/shared/i18n/locales/en/settings.json
+@@ -33,6 +33,10 @@
+       "title": "Integrations",
+       "description": "API keys & Claude accounts"
+     },
++    "deployment": {
++      "title": "Deployment",
++      "description": "Custom Claude session deployment"
++    },
+     "api-profiles": {
+       "title": "API Profiles",
+       "description": "Custom API endpoint profiles"
+@@ -228,6 +232,29 @@
+     "autoNameTerminals": "Automatically name terminals",
+     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
+   },
++  "deployment": {
++    "title": "Deployment",
++    "description": "Configure custom Claude session deployment for local proxies and custom endpoints",
++    "baseUrlLabel": "Custom Base URL",
++    "baseUrlDescription": "Anthropic API base URL for custom deployments (local proxies, enterprise endpoints)",
++    "apiKeyLabel": "Custom API Key",
++    "apiKeyDescription": "API key for authenticated custom deployments",
++    "maxTokensLabel": "Max Output Tokens",
++    "maxTokensDescription": "Maximum tokens allowed per Claude session (leave empty for default: 128768)",
++    "maxTokensDefault": "Default",
++    "commandLabel": "Custom Deployment Command",
++    "commandDescription": "Full command to invoke Claude sessions with custom environment variables",
++    "commandNote": "Example: ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=pass CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768 claude --dangerously-skip-permissions --verbose",
++    "testButton": "Test Deployment",
++    "resetButton": "Reset to Defaults",
++    "show": "Show",
++    "hide": "Hide",
++    "infoTitle": "Environment Variables Configuration",
++    "infoDescription": "These settings configure the following environment variables for Claude session deployment:",
++    "infoBaseUrl": "Custom API endpoint URL",
++    "infoApiKey": "Authentication key for custom endpoints",
++    "infoMaxTokens": "Token limit per session"
++  },
+   "theme": {
+     "title": "Appearance",
+     "description": "Customize how Auto Claude looks",
+diff --git a/apps/frontend/src/shared/i18n/locales/fr/onboarding.json b/apps/frontend/src/shared/i18n/locales/fr/onboarding.json
+index c494115..8491f22 100644
+--- a/apps/frontend/src/shared/i18n/locales/fr/onboarding.json
++++ b/apps/frontend/src/shared/i18n/locales/fr/onboarding.json
+@@ -70,8 +70,14 @@
+       "openai": "OpenAI",
+       "voyage": "Voyage AI",
+       "google": "Google AI",
+-      "azure": "Azure OpenAI"
+-    }
++      "azure": "Azure OpenAI",
++      "openrouter": "OpenRouter (Multi-Fournisseur)"
++    },
++    "openrouterApiKey": "Clé API OpenRouter",
++    "openrouterApiKeyDescription": "Requis pour le fournisseur OpenRouter",
++    "openrouterModel": "Modèle d'embedding",
++    "openrouterModelDescription": "Qwen3-8B (4096 dims, recommandé), OpenAI, Voyage ou Google disponibles",
++    "openrouterGetKey": "Obtenir une clé sur"
+   },
+   "completion": {
+     "title": "Vous êtes prêt !",
+diff --git a/apps/frontend/src/shared/i18n/locales/fr/settings.json b/apps/frontend/src/shared/i18n/locales/fr/settings.json
+index ab97234..83686f9 100644
+--- a/apps/frontend/src/shared/i18n/locales/fr/settings.json
++++ b/apps/frontend/src/shared/i18n/locales/fr/settings.json
+@@ -33,6 +33,10 @@
+       "title": "Intégrations",
+       "description": "Clés API & comptes Claude"
+     },
++    "deployment": {
++      "title": "Déploiement",
++      "description": "Déploiement personnalisé de sessions Claude"
++    },
+     "api-profiles": {
+       "title": "Profils API",
+       "description": "Profils d'endpoint API personnalisés"
+@@ -228,6 +232,29 @@
+     "autoNameTerminals": "Nommer automatiquement les terminaux",
+     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
+   },
++  "deployment": {
++    "title": "Déploiement",
++    "description": "Configurez le déploiement personnalisé de sessions Claude pour les proxies locaux et endpoints personnalisés",
++    "baseUrlLabel": "URL de base personnalisée",
++    "baseUrlDescription": "URL de base de l'API Anthropic pour les déploiements personnalisés (proxies locaux, endpoints d'entreprise)",
++    "apiKeyLabel": "Clé API personnalisée",
++    "apiKeyDescription": "Clé API pour les déploiements personnalisés authentifiés",
++    "maxTokensLabel": "Tokens de sortie max",
++    "maxTokensDescription": "Nombre maximum de tokens par session Claude (laisser vide pour la valeur par défaut : 128768)",
++    "maxTokensDefault": "Par défaut",
++    "commandLabel": "Commande de déploiement personnalisée",
++    "commandDescription": "Commande complète pour invoquer les sessions Claude avec des variables d'environnement personnalisées",
++    "commandNote": "Exemple : ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=pass CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768 claude --dangerously-skip-permissions --verbose",
++    "testButton": "Tester le déploiement",
++    "resetButton": "Réinitialiser aux valeurs par défaut",
++    "show": "Afficher",
++    "hide": "Masquer",
++    "infoTitle": "Configuration des variables d'environnement",
++    "infoDescription": "Ces paramètres configurent les variables d'environnement suivantes pour le déploiement de sessions Claude :",
++    "infoBaseUrl": "URL d'endpoint API personnalisé",
++    "infoApiKey": "Clé d'authentification pour les endpoints personnalisés",
++    "infoMaxTokens": "Limite de tokens par session"
++  },
+   "theme": {
+     "title": "Apparence",
+     "description": "Personnalisez l'apparence de Auto Claude",
+diff --git a/apps/frontend/src/shared/types/project.ts b/apps/frontend/src/shared/types/project.ts
+index 68608d2..4ea780c 100644
+--- a/apps/frontend/src/shared/types/project.ts
++++ b/apps/frontend/src/shared/types/project.ts
+@@ -335,6 +335,12 @@ export interface ProjectEnvConfig {
+   // UI Settings
+   enableFancyUi: boolean;
+ 
++  // Custom Claude Deployment Configuration (for local proxies, custom endpoints)
++  customDeploymentBaseUrl?: string;    // ANTHROPIC_BASE_URL
++  customDeploymentApiKey?: string;     // ANTHROPIC_API_KEY
++  maxOutputTokens?: number;            // CLAUDE_CODE_MAX_OUTPUT_TOKENS
++  customDeploymentCommand?: string;    // Custom command for session deployment
++
+   // MCP Server Configuration (per-project overrides)
+   mcpServers?: {
+     /** Context7 documentation lookup - default: true */
+diff --git a/apps/frontend/src/shared/types/settings.ts b/apps/frontend/src/shared/types/settings.ts
+index 5f41c78..ec72692 100644
+--- a/apps/frontend/src/shared/types/settings.ts
++++ b/apps/frontend/src/shared/types/settings.ts
+@@ -236,6 +236,11 @@ export interface AppSettings {
+   globalGoogleApiKey?: string;
+   globalGroqApiKey?: string;
+   globalOpenRouterApiKey?: string;
++  // Custom Claude Deployment Configuration (for local proxies, custom endpoints, etc.)
++  customDeploymentBaseUrl?: string;     // ANTHROPIC_BASE_URL for custom API endpoint
++  customDeploymentApiKey?: string;      // ANTHROPIC_API_KEY for custom deployments
++  maxOutputTokens?: number;             // CLAUDE_CODE_MAX_OUTPUT_TOKENS
++  customDeploymentCommand?: string;     // Custom command to invoke claude sessions
+   // Graphiti LLM provider settings (legacy)
+   graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
+   ollamaBaseUrl?: string;
+@@ -248,6 +253,8 @@ export interface AppSettings {
+   memoryAzureApiKey?: string;
+   memoryAzureBaseUrl?: string;
+   memoryAzureEmbeddingDeployment?: string;
++  memoryOpenrouterApiKey?: string;
++  memoryOpenrouterEmbeddingModel?: string;
+   // Agent Memory Access (MCP) - app-wide defaults
+   graphitiMcpEnabled?: boolean;
+   graphitiMcpUrl?: string;

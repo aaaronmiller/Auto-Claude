@@ -44,6 +44,9 @@ interface MemoryConfig {
   voyageApiKey: string;
   // Google
   googleApiKey: string;
+  // OpenRouter
+  openrouterApiKey: string;
+  openrouterEmbeddingModel: string;
   // Ollama
   ollamaEmbeddingModel: string;
   ollamaEmbeddingDim: number;
@@ -76,6 +79,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
     azureOpenaiEmbeddingDeployment: '',
     voyageApiKey: '',
     googleApiKey: settings.globalGoogleApiKey || '',
+    openrouterApiKey: '',
+    openrouterEmbeddingModel: 'qwen/qwen3-embedding-8b',  // Qwen3-8B (2026 release)
     ollamaEmbeddingModel: 'qwen3-embedding:4b',
     ollamaEmbeddingDim: 2560,
   });
@@ -126,6 +131,10 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
       if (!config.azureOpenaiBaseUrl.trim()) return false;
       if (!config.azureOpenaiEmbeddingDeployment.trim()) return false;
     }
+    if (embeddingProvider === 'openrouter') {
+      if (!config.openrouterApiKey.trim()) return false;
+      if (!config.openrouterEmbeddingModel.trim()) return false;
+    }
 
     return true;
   };
@@ -153,6 +162,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
         memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
         memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
         memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
+        memoryOpenrouterApiKey: config.openrouterApiKey.trim() || undefined,
+        memoryOpenrouterEmbeddingModel: config.openrouterEmbeddingModel.trim() || undefined,
       };
 
       const result = await window.electronAPI.saveSettings(settingsToSave);
@@ -172,6 +183,8 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
           memoryAzureApiKey: config.azureOpenaiApiKey.trim() || undefined,
           memoryAzureBaseUrl: config.azureOpenaiBaseUrl.trim() || undefined,
           memoryAzureEmbeddingDeployment: config.azureOpenaiEmbeddingDeployment.trim() || undefined,
+          memoryOpenrouterApiKey: config.openrouterApiKey.trim() || undefined,
+          memoryOpenrouterEmbeddingModel: config.openrouterEmbeddingModel.trim() || undefined,
         };
         updateSettings(storeUpdate);
         onNext();
@@ -354,6 +367,51 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
       );
     }
 
+    if (embeddingProvider === 'openrouter') {
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">{t('memory.openrouterApiKey')}</Label>
+            <p className="text-xs text-muted-foreground">{t('memory.openrouterApiKeyDescription')}</p>
+            <div className="relative">
+              <Input
+                type={showApiKey['openrouter'] ? 'text' : 'password'}
+                value={config.openrouterApiKey}
+                onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
+                placeholder="sk-or-..."
+                className="pr-10 font-mono text-sm"
+                disabled={isSaving}
+              />
+              <button
+                type="button"
+                onClick={() => toggleShowApiKey('openrouter')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2 pt-2 border-t border-border">
+            <Label className="text-sm font-medium text-foreground">{t('memory.openrouterModel')}</Label>
+            <p className="text-xs text-muted-foreground">{t('memory.openrouterModelDescription')}</p>
+            <Input
+              value={config.openrouterEmbeddingModel}
+              onChange={(e) => setConfig(prev => ({ ...prev, openrouterEmbeddingModel: e.target.value }))}
+              placeholder="qwen/qwen3-embedding-8b"
+              className="font-mono text-sm"
+              disabled={isSaving}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground pt-1">
+            {t('memory.openrouterGetKey')}{' '}
+            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+              OpenRouter
+            </a>
+          </p>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -481,6 +539,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
                       <SelectItem value="voyage">{t('memory.providers.voyage')}</SelectItem>
                       <SelectItem value="google">{t('memory.providers.google')}</SelectItem>
                       <SelectItem value="azure_openai">{t('memory.providers.azure')}</SelectItem>
+                      <SelectItem value="openrouter">{t('memory.providers.openrouter')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

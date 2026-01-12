@@ -33,6 +33,10 @@
       "title": "Intégrations",
       "description": "Clés API & comptes Claude"
     },
+    "deployment": {
+      "title": "Déploiement",
+      "description": "Déploiement personnalisé de sessions Claude"
+    },
     "api-profiles": {
       "title": "Profils API",
       "description": "Profils d'endpoint API personnalisés"
@@ -227,6 +231,29 @@
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
+  },
+  "deployment": {
+    "title": "Déploiement",
+    "description": "Configurez le déploiement personnalisé de sessions Claude pour les proxies locaux et endpoints personnalisés",
+    "baseUrlLabel": "URL de base personnalisée",
+    "baseUrlDescription": "URL de base de l'API Anthropic pour les déploiements personnalisés (proxies locaux, endpoints d'entreprise)",
+    "apiKeyLabel": "Clé API personnalisée",
+    "apiKeyDescription": "Clé API pour les déploiements personnalisés authentifiés",
+    "maxTokensLabel": "Tokens de sortie max",
+    "maxTokensDescription": "Nombre maximum de tokens par session Claude (laisser vide pour la valeur par défaut : 128768)",
+    "maxTokensDefault": "Par défaut",
+    "commandLabel": "Commande de déploiement personnalisée",
+    "commandDescription": "Commande complète pour invoquer les sessions Claude avec des variables d'environnement personnalisées",
+    "commandNote": "Exemple : ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=pass CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768 claude --dangerously-skip-permissions --verbose",
+    "testButton": "Tester le déploiement",
+    "resetButton": "Réinitialiser aux valeurs par défaut",
+    "show": "Afficher",
+    "hide": "Masquer",
+    "infoTitle": "Configuration des variables d'environnement",
+    "infoDescription": "Ces paramètres configurent les variables d'environnement suivantes pour le déploiement de sessions Claude :",
+    "infoBaseUrl": "URL d'endpoint API personnalisé",
+    "infoApiKey": "Clé d'authentification pour les endpoints personnalisés",
+    "infoMaxTokens": "Limite de tokens par session"
   },
   "theme": {
     "title": "Apparence",

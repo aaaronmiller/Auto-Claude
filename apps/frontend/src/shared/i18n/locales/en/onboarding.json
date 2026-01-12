@@ -70,8 +70,14 @@
       "openai": "OpenAI",
       "voyage": "Voyage AI",
       "google": "Google AI",
-      "azure": "Azure OpenAI"
-    }
+      "azure": "Azure OpenAI",
+      "openrouter": "OpenRouter (Multi-Provider)"
+    },
+    "openrouterApiKey": "OpenRouter API Key",
+    "openrouterApiKeyDescription": "Required for OpenRouter provider",
+    "openrouterModel": "Embedding Model",
+    "openrouterModelDescription": "Qwen3-8B (4096 dims, recommended), OpenAI, Voyage, or Google models available",
+    "openrouterGetKey": "Get your key from"
   },
   "completion": {
     "title": "You're All Set!",

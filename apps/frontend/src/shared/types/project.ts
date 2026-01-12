@@ -335,6 +335,12 @@ export interface ProjectEnvConfig {
   // UI Settings
   enableFancyUi: boolean;
 
+  // Custom Claude Deployment Configuration (for local proxies, custom endpoints)
+  customDeploymentBaseUrl?: string;    // ANTHROPIC_BASE_URL
+  customDeploymentApiKey?: string;     // ANTHROPIC_API_KEY
+  maxOutputTokens?: number;            // CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  customDeploymentCommand?: string;    // Custom command for session deployment
+
   // MCP Server Configuration (per-project overrides)
   mcpServers?: {
     /** Context7 documentation lookup - default: true */

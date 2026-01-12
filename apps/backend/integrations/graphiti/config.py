@@ -45,6 +45,18 @@ Environment Variables:
     GOOGLE_LLM_MODEL: Model for LLM (default: gemini-2.0-flash)
     GOOGLE_EMBEDDING_MODEL: Model for embeddings (default: text-embedding-004)
 
+    # OpenRouter (multi-provider aggregator)
+    OPENROUTER_API_KEY: Required for OpenRouter provider
+    OPENROUTER_LLM_MODEL: Model for LLM (default: anthropic/claude-3.5-sonnet)
+    OPENROUTER_EMBEDDING_MODEL: Model for embeddings (default: qwen/qwen3-embedding-8b)
+        Available models:
+        - qwen/qwen3-embedding-8b (4096 dims, 2026 release - default)
+        - qwen/qwen3-embedding-4b (2560 dims)
+        - qwen/qwen3-embedding-0.6b (1024 dims)
+        - openai/text-embedding-3-small (1536 dims)
+        - voyage/voyage-3 (1024 dims)
+        - google/text-embedding-004 (768 dims)
+
     # Ollama (local)
     OLLAMA_BASE_URL: Ollama server URL (default: http://localhost:11434)
     OLLAMA_LLM_MODEL: Model for LLM (e.g., deepseek-r1:7b)
@@ -147,7 +159,9 @@ class GraphitiConfig:
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_llm_model: str = "anthropic/claude-3.5-sonnet"
-    openrouter_embedding_model: str = "openai/text-embedding-3-small"
+    # NOTE: qwen/qwen3-embedding-8b is the text embedding model.
+    # The multimodal qwen3-vl-8b-embedding (text+images) will be available when OpenRouter adds it.
+    openrouter_embedding_model: str = "qwen/qwen3-embedding-8b"  # Qwen3-8B text embeddings
 
     # Ollama settings (local)
     ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
@@ -213,7 +227,7 @@ class GraphitiConfig:
             "OPENROUTER_LLM_MODEL", "anthropic/claude-3.5-sonnet"
         )
         openrouter_embedding_model = os.environ.get(
-            "OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small"
+            "OPENROUTER_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b"
         )
 
         # Ollama settings
@@ -408,6 +422,12 @@ class GraphitiConfig:
                 return 1024  # Voyage-3
             elif model.startswith("google/"):
                 return 768  # Google text-embedding-004
+            elif model.startswith("qwen/qwen3-embedding-8b"):
+                return 4096  # Qwen3-8B embedding (2026 release)
+            elif model.startswith("qwen/qwen3-embedding-4b"):
+                return 2560  # Qwen3-4B embedding
+            elif model.startswith("qwen/qwen3-embedding-0.6b"):
+                return 1024  # Qwen3-0.6B embedding
             # Add more providers as needed
             return 1536  # Default for unknown OpenRouter models
         return 768  # Safe default

@@ -33,6 +33,10 @@
       "title": "Integrations",
       "description": "API keys & Claude accounts"
     },
+    "deployment": {
+      "title": "Deployment",
+      "description": "Custom Claude session deployment"
+    },
     "api-profiles": {
       "title": "API Profiles",
       "description": "Custom API endpoint profiles"
@@ -227,6 +231,29 @@
     "autoClaudePathPlaceholder": "auto-claude (default)",
     "autoNameTerminals": "Automatically name terminals",
     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
+  },
+  "deployment": {
+    "title": "Deployment",
+    "description": "Configure custom Claude session deployment for local proxies and custom endpoints",
+    "baseUrlLabel": "Custom Base URL",
+    "baseUrlDescription": "Anthropic API base URL for custom deployments (local proxies, enterprise endpoints)",
+    "apiKeyLabel": "Custom API Key",
+    "apiKeyDescription": "API key for authenticated custom deployments",
+    "maxTokensLabel": "Max Output Tokens",
+    "maxTokensDescription": "Maximum tokens allowed per Claude session (leave empty for default: 128768)",
+    "maxTokensDefault": "Default",
+    "commandLabel": "Custom Deployment Command",
+    "commandDescription": "Full command to invoke Claude sessions with custom environment variables",
+    "commandNote": "Example: ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY=pass CLAUDE_CODE_MAX_OUTPUT_TOKENS=128768 claude --dangerously-skip-permissions --verbose",
+    "testButton": "Test Deployment",
+    "resetButton": "Reset to Defaults",
+    "show": "Show",
+    "hide": "Hide",
+    "infoTitle": "Environment Variables Configuration",
+    "infoDescription": "These settings configure the following environment variables for Claude session deployment:",
+    "infoBaseUrl": "Custom API endpoint URL",
+    "infoApiKey": "Authentication key for custom endpoints",
+    "infoMaxTokens": "Token limit per session"
   },
   "theme": {
     "title": "Appearance",

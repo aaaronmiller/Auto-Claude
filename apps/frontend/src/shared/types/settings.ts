@@ -236,6 +236,11 @@ export interface AppSettings {
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;
   globalOpenRouterApiKey?: string;
+  // Custom Claude Deployment Configuration (for local proxies, custom endpoints, etc.)
+  customDeploymentBaseUrl?: string;     // ANTHROPIC_BASE_URL for custom API endpoint
+  customDeploymentApiKey?: string;      // ANTHROPIC_API_KEY for custom deployments
+  maxOutputTokens?: number;             // CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  customDeploymentCommand?: string;     // Custom command to invoke claude sessions
   // Graphiti LLM provider settings (legacy)
   graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
   ollamaBaseUrl?: string;
@@ -248,6 +253,8 @@ export interface AppSettings {
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
+  memoryOpenrouterApiKey?: string;
+  memoryOpenrouterEmbeddingModel?: string;
   // Agent Memory Access (MCP) - app-wide defaults
   graphitiMcpEnabled?: boolean;
   graphitiMcpUrl?: string;

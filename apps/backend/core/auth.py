@@ -21,11 +21,12 @@ AUTH_TOKEN_ENV_VARS = [
 ]
 
 # Environment variables to pass through to SDK subprocess
-# NOTE: ANTHROPIC_API_KEY is intentionally excluded to prevent silent API billing
+# NOTE: ANTHROPIC_API_KEY can now be included for custom deployments
 SDK_ENV_VARS = [
     # API endpoint configuration
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_API_KEY",  # NEW: Enabled for custom deployments (local proxies, etc.)
     # Model overrides (from API Profile custom model mappings)
     "ANTHROPIC_MODEL",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL",
@@ -36,8 +37,9 @@ SDK_ENV_VARS = [
     "DISABLE_TELEMETRY",
     "DISABLE_COST_WARNINGS",
     "API_TIMEOUT_MS",
-    # Windows-specific: Git Bash path for Claude Code CLI
-    "CLAUDE_CODE_GIT_BASH_PATH",
+    # Claude Code specific configuration
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",  # NEW: Max tokens for session deployment
+    "CLAUDE_CODE_GIT_BASH_PATH",  # Windows-specific: Git Bash path for Claude Code CLI
 ]
 
 
