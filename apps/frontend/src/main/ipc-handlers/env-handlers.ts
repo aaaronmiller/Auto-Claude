@@ -163,6 +163,11 @@ export function registerEnvHandlers(
       if (pc.ollamaBaseUrl) existingVars['OLLAMA_BASE_URL'] = pc.ollamaBaseUrl;
       if (pc.ollamaEmbeddingModel) existingVars['OLLAMA_EMBEDDING_MODEL'] = pc.ollamaEmbeddingModel;
       if (pc.ollamaEmbeddingDim) existingVars['OLLAMA_EMBEDDING_DIM'] = String(pc.ollamaEmbeddingDim);
+      // OpenRouter Embeddings (multi-provider aggregator)
+      if (pc.openrouterApiKey) existingVars['OPENROUTER_API_KEY'] = pc.openrouterApiKey;
+      if (pc.openrouterBaseUrl) existingVars['OPENROUTER_BASE_URL'] = pc.openrouterBaseUrl;
+      if (pc.openrouterLlmModel) existingVars['OPENROUTER_LLM_MODEL'] = pc.openrouterLlmModel;
+      if (pc.openrouterEmbeddingModel) existingVars['OPENROUTER_EMBEDDING_MODEL'] = pc.openrouterEmbeddingModel;
       // LadybugDB (embedded database)
       if (pc.dbPath) existingVars['GRAPHITI_DB_PATH'] = pc.dbPath;
       if (pc.database) existingVars['GRAPHITI_DATABASE'] = pc.database;
@@ -331,7 +336,7 @@ ${existingVars['CUSTOM_MCP_SERVERS'] ? `CUSTOM_MCP_SERVERS=${existingVars['CUSTO
 
 # =============================================================================
 # MEMORY INTEGRATION
-# Embedding providers: OpenAI, Google AI, Azure OpenAI, Ollama, Voyage
+# Embedding providers: OpenAI, Google AI, Azure OpenAI, Ollama, Voyage, OpenRouter
 # =============================================================================
 ${existingVars['GRAPHITI_ENABLED'] ? `GRAPHITI_ENABLED=${existingVars['GRAPHITI_ENABLED']}` : '# GRAPHITI_ENABLED=true'}
 
@@ -354,6 +359,12 @@ ${existingVars['VOYAGE_EMBEDDING_MODEL'] ? `VOYAGE_EMBEDDING_MODEL=${existingVar
 # Google AI Embeddings
 ${existingVars['GOOGLE_API_KEY'] ? `GOOGLE_API_KEY=${existingVars['GOOGLE_API_KEY']}` : '# GOOGLE_API_KEY='}
 ${existingVars['GOOGLE_EMBEDDING_MODEL'] ? `GOOGLE_EMBEDDING_MODEL=${existingVars['GOOGLE_EMBEDDING_MODEL']}` : '# GOOGLE_EMBEDDING_MODEL=text-embedding-004'}
+
+# OpenRouter Embeddings (multi-provider aggregator)
+${existingVars['OPENROUTER_API_KEY'] ? `OPENROUTER_API_KEY=${existingVars['OPENROUTER_API_KEY']}` : '# OPENROUTER_API_KEY='}
+${existingVars['OPENROUTER_BASE_URL'] ? `OPENROUTER_BASE_URL=${existingVars['OPENROUTER_BASE_URL']}` : '# OPENROUTER_BASE_URL=https://openrouter.ai/api/v1'}
+${existingVars['OPENROUTER_LLM_MODEL'] ? `OPENROUTER_LLM_MODEL=${existingVars['OPENROUTER_LLM_MODEL']}` : '# OPENROUTER_LLM_MODEL=anthropic/claude-3.5-sonnet'}
+${existingVars['OPENROUTER_EMBEDDING_MODEL'] ? `OPENROUTER_EMBEDDING_MODEL=${existingVars['OPENROUTER_EMBEDDING_MODEL']}` : '# OPENROUTER_EMBEDDING_MODEL=qwen/qwen3-embedding-8b'}
 
 # Ollama Embeddings (Local - free)
 ${existingVars['OLLAMA_BASE_URL'] ? `OLLAMA_BASE_URL=${existingVars['OLLAMA_BASE_URL']}` : '# OLLAMA_BASE_URL=http://localhost:11434'}
@@ -402,7 +413,8 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         graphitiEnabled: false,
         enableFancyUi: true,
         claudeTokenIsGlobal: false,
-        openaiKeyIsGlobal: false
+        openaiKeyIsGlobal: false,
+        openrouterKeyIsGlobal: false
       };
 
       // Parse project-specific .env if it exists
@@ -491,6 +503,13 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         config.openaiKeyIsGlobal = true;
       }
 
+      // OpenRouter API Key: project-specific takes precedence, then global
+      if (vars['OPENROUTER_API_KEY']) {
+        config.openrouterKeyIsGlobal = false;
+      } else if (globalSettings.globalOpenRouterApiKey) {
+        config.openrouterKeyIsGlobal = true;
+      }
+
       if (vars['GRAPHITI_DATABASE']) {
         config.graphitiDatabase = vars['GRAPHITI_DATABASE'];
       }
@@ -519,9 +538,9 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       // Populate graphitiProviderConfig from .env file (embeddings only - no LLM provider)
       const embeddingProvider = vars['GRAPHITI_EMBEDDER_PROVIDER'];
       if (embeddingProvider || vars['AZURE_OPENAI_API_KEY'] ||
-          vars['VOYAGE_API_KEY'] || vars['GOOGLE_API_KEY'] || vars['OLLAMA_BASE_URL']) {
+          vars['VOYAGE_API_KEY'] || vars['GOOGLE_API_KEY'] || vars['OLLAMA_BASE_URL'] || vars['OPENROUTER_API_KEY']) {
         config.graphitiProviderConfig = {
-          embeddingProvider: (embeddingProvider as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google') || 'ollama',
+          embeddingProvider: (embeddingProvider as 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter') || 'ollama',
           // OpenAI Embeddings
           openaiApiKey: vars['OPENAI_API_KEY'],
           openaiEmbeddingModel: vars['OPENAI_EMBEDDING_MODEL'],
@@ -539,6 +558,11 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
           ollamaBaseUrl: vars['OLLAMA_BASE_URL'],
           ollamaEmbeddingModel: vars['OLLAMA_EMBEDDING_MODEL'],
           ollamaEmbeddingDim: vars['OLLAMA_EMBEDDING_DIM'] ? parseInt(vars['OLLAMA_EMBEDDING_DIM'], 10) : undefined,
+          // OpenRouter Embeddings
+          openrouterApiKey: vars['OPENROUTER_API_KEY'],
+          openrouterBaseUrl: vars['OPENROUTER_BASE_URL'],
+          openrouterLlmModel: vars['OPENROUTER_LLM_MODEL'],
+          openrouterEmbeddingModel: vars['OPENROUTER_EMBEDDING_MODEL'],
           // LadybugDB
           database: vars['GRAPHITI_DATABASE'],
           dbPath: vars['GRAPHITI_DB_PATH'],

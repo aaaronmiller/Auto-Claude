@@ -5,7 +5,8 @@ import {
   EyeOff,
   ChevronDown,
   ChevronUp,
-  Globe
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -19,6 +20,7 @@ import {
 } from '../ui/select';
 import { Separator } from '../ui/separator';
 import { OllamaModelSelector } from '../onboarding/OllamaModelSelector';
+import { Button } from '../ui/button';
 import type { ProjectEnvConfig, ProjectSettings as ProjectSettingsType, GraphitiEmbeddingProvider } from '../../../shared/types';
 
 interface SecuritySettingsProps {
@@ -51,7 +53,8 @@ export function SecuritySettings({
     openai: showOpenAIKey,
     voyage: false,
     google: false,
-    azure: false
+    azure: false,
+    openrouter: false
   });
 
   // Sync parent's showOpenAIKey prop to local state
@@ -310,6 +313,83 @@ export function SecuritySettings({
       );
     }
 
+    // OpenRouter (Multi-provider aggregator)
+    if (embeddingProvider === 'openrouter') {
+      return (
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-foreground">OpenRouter API Key</Label>
+              {envConfig.openrouterKeyIsGlobal && (
+                <span className="flex items-center gap-1 text-xs text-info">
+                  <Globe className="h-3 w-3" />
+                  Using global key
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Required for OpenRouter provider (supports Qwen3-8B, OpenAI, Voyage, Google models)
+            </p>
+            <div className="relative">
+              <Input
+                type={showApiKey['openrouter'] ? 'text' : 'password'}
+                placeholder={envConfig.openrouterKeyIsGlobal ? 'Enter to override global key...' : 'sk-or-xxxxxxxx'}
+                value={envConfig.openrouterKeyIsGlobal ? '' : (envConfig.openrouterApiKey || '')}
+                onChange={(e) => updateEnvConfig({
+                  graphitiProviderConfig: {
+                    ...envConfig.graphitiProviderConfig,
+                    embeddingProvider: 'openrouter',
+                    openrouterApiKey: e.target.value || undefined,
+                  }
+                })}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => toggleShowApiKey('openrouter')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showApiKey['openrouter'] ? 'Hide OpenRouter API key' : 'Show OpenRouter API key'}
+              >
+                {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1 pt-2 border-t border-border">
+            <Label className="text-xs text-muted-foreground">Embedding Model (optional)</Label>
+            <Input
+              placeholder="qwen/qwen3-embedding-8b"
+              value={envConfig.graphitiProviderConfig?.openrouterEmbeddingModel || ''}
+              onChange={(e) => updateEnvConfig({
+                graphitiProviderConfig: {
+                  ...envConfig.graphitiProviderConfig,
+                  embeddingProvider: 'openrouter',
+                  openrouterEmbeddingModel: e.target.value || undefined,
+                }
+              })}
+              className="font-mono text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Default: qwen/qwen3-embedding-8b (4096 dims, 2026 release)
+            </p>
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            Get your key from{' '}
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-primary"
+              onClick={() => window.open('https://openrouter.ai/keys', '_blank')}
+            >
+              OpenRouter
+              <ExternalLink className="h-3 w-3 ml-1 inline-block" />
+            </Button>
+          </p>
+        </div>
+      );
+    }
+
     return null;
   };
 
@@ -424,6 +504,7 @@ export function SecuritySettings({
                     <SelectItem value="voyage">Voyage AI</SelectItem>
                     <SelectItem value="google">Google AI</SelectItem>
                     <SelectItem value="azure_openai">Azure OpenAI</SelectItem>
+                    <SelectItem value="openrouter">OpenRouter (Multi-Provider)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

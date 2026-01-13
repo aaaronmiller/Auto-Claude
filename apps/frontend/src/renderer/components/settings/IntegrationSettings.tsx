@@ -45,6 +45,7 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
   const { t: tCommon } = useTranslation('common');
   // Password visibility toggle for global API keys
   const [showGlobalOpenAIKey, setShowGlobalOpenAIKey] = useState(false);
+  const [showGlobalOpenRouterKey, setShowGlobalOpenRouterKey] = useState(false);
 
   // Claude Accounts state
   const [claudeProfiles, setClaudeProfiles] = useState<ClaudeProfile[]>([]);
@@ -797,6 +798,42 @@ export function IntegrationSettings({ settings, onSettingsChange, isOpen }: Inte
                   {showGlobalOpenAIKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="space-y-2">
+              <Label htmlFor="globalOpenRouterKey" className="text-sm font-medium text-foreground">
+                {t('integrations.openrouterKey')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('integrations.openrouterKeyDescription')}
+              </p>
+              <div className="relative max-w-lg">
+                <Input
+                  id="globalOpenRouterKey"
+                  type={showGlobalOpenRouterKey ? 'text' : 'password'}
+                  placeholder="sk-or-..."
+                  value={settings.globalOpenRouterApiKey || ''}
+                  onChange={(e) =>
+                    onSettingsChange({ ...settings, globalOpenRouterApiKey: e.target.value || undefined })
+                  }
+                  className="pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGlobalOpenRouterKey(!showGlobalOpenRouterKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showGlobalOpenRouterKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground pt-1">
+                {t('integrations.openrouterGetKey')}{' '}
+                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
+                  OpenRouter
+                </a>
+              </p>
             </div>
           </div>
         </div>

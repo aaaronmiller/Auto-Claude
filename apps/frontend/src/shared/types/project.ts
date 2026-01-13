@@ -329,6 +329,8 @@ export interface ProjectEnvConfig {
   openaiApiKey?: string;
   // Indicates if the OpenAI key is from global settings (not project-specific)
   openaiKeyIsGlobal?: boolean;
+  // OpenRouter global key indicator
+  openrouterKeyIsGlobal?: boolean;
   graphitiDatabase?: string;
   graphitiDbPath?: string;
 

@@ -368,7 +368,7 @@
     },
     "memory": {
       "title": "Mémoire",
-      "description": "Backend mémoire Graphiti",
+      "description": "Backend mémoire Graphiti (OpenAI, OpenRouter, Google, Azure, Voyage, Ollama)",
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
       "syncDescription": "Configurer la mémoire persistante"
@@ -463,7 +463,10 @@
     "apiKeys": "Clés API",
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
-    "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)"
+    "openaiKeyDescription": "Requise pour le backend mémoire Graphiti (embeddings)",
+    "openrouterKey": "Clé API OpenRouter",
+    "openrouterKeyDescription": "Agrégateur multi-fournisseur pour embeddings (supporte Qwen3-8B, OpenAI, Voyage, Google)",
+    "openrouterGetKey": "Obtenir une clé sur"
   },
   "debug": {
     "title": "Debug & Logs",
